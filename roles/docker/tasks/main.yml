@@ -3,18 +3,12 @@
   register: install_info
   tags: upgrade_docker, download_docker
 
-# 18.09.x 版本二进制名字有变化，需要做判断
-- name: 获取docker版本信息
-  shell: "{{ base_dir }}/bin/dockerd --version|cut -d' ' -f3"
-  register: docker_ver
-  connection: local
-  run_once: true
-  tags: upgrade_docker, download_docker
+# 根据docker文件名字判断版本,18.09.x 版本二进制名字有变化，需要做判断
 
-- name: 转换docker版本信息为浮点数
-  set_fact: 
-    DOCKER_VER: "{{ docker_ver.stdout.split('.')[0]|int + docker_ver.stdout.split('.')[1]|int/100 }}"
-  tags: upgrade_docker, download_docker
+- name: judge a file or dir is exits
+  shell: ls {{ base_dir }}/bin/docker-containerd
+  ignore_errors: True
+  register: file-exit-result
 
 #- name: debug info
 #  debug: var="DOCKER_VER"
@@ -39,7 +33,7 @@
       - dockerd
       - docker-proxy
       tags: upgrade_docker, download_docker
-      when: "DOCKER_VER < 18.09"
+      when: file-exit-result|succeeded
     
     - name: 下载 docker 二进制文件(>= 18.09.x)
       copy: src={{ base_dir }}/bin/{{ item }} dest={{ bin_dir }}/{{ item }} mode=0755
@@ -53,7 +47,7 @@
       - dockerd
       - docker-proxy
       tags: upgrade_docker, download_docker
-      when: "DOCKER_VER >= 18.09"
+      when: file-exit-result|failed
     
     - name: docker命令自动补全
       copy: src=docker dest=/etc/bash_completion.d/docker mode=0644
